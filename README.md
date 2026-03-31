@@ -1,67 +1,120 @@
 # Tienda Patrones Estructurales
 
-Proyecto de ejemplo en **Spring Boot 3.2.0** que implementa patrones de diseño estructurales (Adapter y Composite) en un sistema de tienda.  
-El proyecto demuestra cómo integrar diferentes pasarelas de pago mediante el patrón **Adapter** y cómo organizar productos y categorías con el patrón **Composite**.
+Proyecto en **Spring Boot 3.2.0** que extiende la tienda virtual con los patrones **Decorator** y **Facade**, aplicando principios SOLID y demostrando el valor de la composición sobre la herencia.
 
 ---
 
 ## 📂 Estructura del Proyecto
 
-tienda-patrones-estructurales/
-├── pom.xml
-└── src/
-├── main/
-│   └── java/com/universidad/tienda/
-│       ├── TiendaApp.java
-│       ├── adapter/
-│       │   ├── PasarelaPago.java
-│       │   ├── PayPalAPI.java
-│       │   ├── StripeAPI.java
-│       │   ├── PayPalAdapter.java
-│       │   └── StripeAdapter.java
-│       ├── composite/
-│       │   ├── ItemCatalogo.java
-│       │   ├── Producto.java
-│       │   └── Categoria.java
-│       └── servicio/
-│           └── TiendaServicio.java
-└── test/
-└── java/com/universidad/tienda/
-└── TiendaServicioTest.java
-
-
----
-
-
-## 📖 Patrones Implementados
-Adapter: integración de pasarelas de pago (PayPal y Stripe) con una interfaz común PasarelaPago.
-
-Composite: organización jerárquica de productos y categorías, permitiendo cálculos agregados y visualización recursiva.
-
-Servicio (TiendaServicio): orquesta ambos patrones para construir el catálogo y procesar compras.
+ ```text
+   
+     tienda-patrones-estructurales/
+     ├── pom.xml
+     └── src/
+         ├── main/java/com/universidad/tienda/
+         │   ├── TiendaApp.java
+         │   ├── adapter/...
+         │   ├── composite/...
+         │   ├── servicio/TiendaServicio.java
+         │   ├── decorator/
+         │   │   ├── OrdenServicio.java
+         │   │   ├── OrdenServicioBase.java
+         │   │   ├── OrdenServicioDecorator.java
+         │   │   ├── LoggingDecorator.java
+         │   │   ├── ValidacionDecorator.java
+         │   │   └── AuditoriaDecorator.java
+         │   └── facade/
+         │       ├── EmailService.java
+         │       ├── SMSService.java
+         │       ├── PushService.java
+         │       └── NotificacionFacade.java
+         └── test/java/com/universidad/tienda/
+             ├── TiendaServicioTest.java
+             └── DecoratorTest.java
+  ```
 
 ---
 
 
-## 🚀 Ejecución de la Aplicación
-
-1. **Compilar el proyecto**  
-   Desde la raíz del proyecto:
+## 🎯 Patrón Decorator
+ 
+El patrón Decorator se usa para añadir funcionalidades opcionales al servicio de órdenes sin modificar la clase base.
+La cadena de decoradores se define en DecoratorConfig:
    ```bash
-   mvn clean compile
+   @Bean("ordenCompleto")
+   public OrdenServicio ordenServicioCompleto(@Qualifier("ordenBase") OrdenServicio base) {
+    return new AuditoriaDecorator(
+        new ValidacionDecorator(
+            new LoggingDecorator(base)
+        )
+    );
+   }
+   ```
+---
 
-2. **Ejecutar la aplicación principal**
+## 🔗 Composición de la cadena
+Pseudocódigo del flujo:
    ```bash
-   mvn spring-boot:run
+   OrdenServicioCompleto = Auditoria(
+                           Validación(
+                               Logging(
+                                   Base
+                               )
+                           )
+                       )
+   ```
 
-   ![alt text](image.png)
+Orden de ejecución:
+
+1. Auditoría registra la operación.
+2. Validación verifica ID y monto.
+3. Logging mide tiempo y registra inicio/fin.
+4. Base procesa la orden.
+5. Esto demuestra cómo la composición permite añadir capas sin alterar OrdenServicioBase.
+
+---
+
+## 📡 Patrón Facade
+El subsistema de notificaciones tiene tres servicios: EmailService, SMSService y PushService.
+En lugar de que el cliente los invoque directamente, se encapsulan en NotificacionFacade:
+ ```bash
+@Service
+public class NotificacionFacade {
+    private final EmailService email;
+    private final SMSService sms;
+    private final PushService push;
+
+    public void notificarCompraExitosa(String correo, String telefono, String token, String ordenId) {
+        String asunto = "Orden " + ordenId + " confirmada";
+        String msg = "Su orden " + ordenId + " ha sido procesada exitosamente.";
+        email.enviar(correo, asunto, msg);
+        sms.enviar(telefono, msg);
+        push.enviar(token, asunto, msg);
+    }
+}
+
+ ```
+
+---
+
+## ✅ Justificación del uso de Facade
+1. Simplificación: el cliente (controlador o servicio) hace una sola llamada en lugar de coordinar tres servicios.
+2. Desacoplamiento: los detalles de cada canal (email, SMS, push) quedan ocultos.
+3. Mantenibilidad: si cambia la implementación de un canal, el cliente no se ve afectado.
+4. Consistencia: asegura que todos los canales se notifiquen con el mismo mensaje.
 
 ---
 
 ## 🧪 Ejecución de Pruebas
+Tests de Decorator (DecoratorTest) validan:
 
-1. Ejecutar los tests
-   ```bash
-   mvn test
+1. Orden válida procesada correctamente.
+2. Excepciones en monto fuera de rango o ID vacío.
+3. Decoradores individuales funcionan de forma aislada.
 
-   ![alt text](image-1.png)
+Ejecutar:
+```bash
+mvn test
+```
+Resultado: 
+<img width="863" height="225" alt="image" src="https://github.com/user-attachments/assets/e7560677-fe67-4676-aaa7-c69b75992c9a" />
